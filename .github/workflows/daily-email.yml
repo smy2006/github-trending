@@ -6,21 +6,29 @@ on:
   workflow_dispatch:
 
 jobs:
-  github-trending-email:
+  send-email:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Fetch GitHub Trending
-        run: |
-          echo "Fetching GitHub Trending..."
-          curl -s https://github.com/trending > trending.html
-          echo "Page fetched successfully!"
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
 
-      - name: Show page info
-        run: |
-          echo "Page size: $(ls -lh trending.html)"
-          echo "First 500 characters:"
-          head -c 500 trending.html
+      - name: Get GitHub Trending
+        uses: talljack/github-trending-email@main
+        id: trending
+        with:
+          languages: '[""]'
+          enableHuggingFace: 'false'
+          enableHackerNews: 'false'
+          enableProductHunt: 'false'
+          enableAIPapers: 'false'
+          enableIndieHackers: 'false'
+          itemLimit: '20'
+
+      - name: Send Email
+        run: python send_email.py "${{ steps.trending.outputs.trendingData }}"
