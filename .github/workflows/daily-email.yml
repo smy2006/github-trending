@@ -2,165 +2,25 @@ name: Daily GitHub Trending Email
 
 on:
   schedule:
-    - cron: '0 9 * * *'  # 每天早上9点发送
-  workflow_dispatch:  # 也支持手动触发
+    - cron: '0 9 * * *'
+  workflow_dispatch:
 
 jobs:
   github-trending-email:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Fetch GitHub Trending
-        id: fetch
         run: |
-          # 获取 GitHub Trending 页面（支持语言筛选）
-          if [ "${{ github.event.inputs.language || 'all' }}" = "all" ]; then
-            URL="https://github.com/trending"
-          else
-            URL="https://github.com/trending/${{ github.event.inputs.language || 'all' }}"
-          fi
-          
-          echo "Fetching trending from: $URL"
-          
-          # 获取页面内容
-          curl -s "$URL" > trending.html
-          
-          # 使用 Python 解析 HTML，获取更详细的信息
-          python3 << 'EOF'
-import re
-import json
-from html import unescape
+          echo "Fetching GitHub Trending..."
+          curl -s https://github.com/trending > trending.html
+          echo "Page fetched successfully!"
 
-with open('trending.html', 'r', encoding='utf-8') as f:
-    content = f.read()
-
-# 解析项目信息
-projects = []
-pattern = r'<article[^>]*>.*?<h2[^>]*>.*?<a[^>]*href="([^"]+)".*?>(.*?)</a>.*?<p[^>]*>(.*?)</p>'
-matches = re.findall(pattern, content, re.DOTALL)
-
-for i, (url, name, description) in enumerate(matches[:20], 1):
-    # 清理 HTML 标签和实体
-    name = unescape(re.sub(r'<[^>]+>', '', name)).strip()
-    description = unescape(re.sub(r'<[^>]+>', '', description)).strip()
-    
-    # 获取完整 URL
-    full_url = f"https://github.com{url}"
-    
-    projects.append({
-        "rank": i,
-        "name": name,
-        "url": full_url,
-        "description": description
-    })
-
-# 输出为 JSON
-output = {
-    "count": len(projects),
-    "projects": projects
-}
-
-print(json.dumps(output, ensure_ascii=False, indent=2))
-
-# 同时输出格式化的文本
-print("\n=== Formatted Output ===")
-for project in projects:
-    print(f"{project['rank']}. {project['name']}")
-    print(f"   {project['url']}")
-    if project['description']:
-        print(f"   {project['description']}")
-    print()
-
-# 设置输出变量
-formatted_output = ""
-for project in projects:
-    formatted_output += f"{project['rank']}. **{project['name']}**\n"
-    formatted_output += f"   {project['url']}\n"
-    if project['description']:
-        formatted_output += f"   {project['description']}\n"
-    formatted_output += "\n"
-
-print(f"::set-output name=repos_json::{json.dumps(output)}")
-print(f"::set-output name=repos_formatted::{formatted_output}")
-EOF
-          
-          # 读取 Python 脚本的输出
-          REPOS_JSON=$(python3 << 'EOF'
-import json
-with open('trending.html', 'r', encoding='utf-8') as f:
-    content = f.read()
-
-import re
-from html import unescape
-
-projects = []
-pattern = r'<article[^>]*>.*?<h2[^>]*>.*?<a[^>]*href="([^"]+)".*?>(.*?)</a>.*?<p[^>]*>(.*?)</p>'
-matches = re.findall(pattern, content, re.DOTALL)
-
-for i, (url, name, description) in enumerate(matches[:20], 1):
-    name = unescape(re.sub(r'<[^>]+>', '', name)).strip()
-    description = unescape(re.sub(r'<[^>]+>', '', description)).strip()
-    full_url = f"https://github.com{url}"
-    
-    projects.append({
-        "rank": i,
-        "name": name,
-        "url": full_url,
-        "description": description
-    })
-
-output = {
-    "count": len(projects),
-    "projects": projects
-}
-
-print(json.dumps(output))
-EOF
-          )
-          
-          # 格式化为文本
-          REPOS_FORMATTED=$(echo "$REPOS_JSON" | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-result = ''
-for project in data['projects']:
-    result += f\"{project['rank']}. **{project['name']}**\\n\"
-    result += f\"   {project['url']}\\n\"
-    if project['description']:
-        result += f\"   {project['description']}\\n\"
-    result += \"\\n\"
-print(result)
-")
-          
-          echo "::set-output name=repos_json::$REPOS_JSON"
-          echo "::set-output name=repos_formatted::$REPOS_FORMATTED"
-          
-      - name: Send Email
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.qq.com
-          server_port: 465
-          secure: true
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-          from: GitHub Trending <${{ secrets.MAIL_USERNAME }}>
-          to: 2789154625@qq.com
-          subject: 📊 GitHub Daily Trending - $(date +\%Y-\%m-\%d)
-          body: |
-            # 📊 GitHub Daily Trending
-            
-            日期: $(date +%Y-%m-%d)
-            语言: ${{ github.event.inputs.language || '全部' }}
-            项目数量: ${{ fromJson(steps.fetch.outputs.repos_json).count }}
-            
-            ## 今日热门项目推荐：
-            
-            ${{ steps.fetch.outputs.repos_formatted }}
-            
-            ---
-            由 GitHub Actions 自动发送
-            关注用户: smy2006
-          html: false
+      - name: Show page info
+        run: |
+          echo "Page size: $(ls -lh trending.html)"
+          echo "First 500 characters:"
+          head -c 500 trending.html
