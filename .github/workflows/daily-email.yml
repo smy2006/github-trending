@@ -18,17 +18,21 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4
+
       - name: Get GitHub Trending
         uses: talljack/github-trending-email@main
         id: trending
         with:
-          languages: '[""]'
+          languages: '["", "python", "javascript", "go", "rust"]'
           enableHuggingFace: 'false'
           enableHackerNews: 'false'
-          enableProductHunt: 'false'
+          enableDevTo: 'false'
           enableAIPapers: 'false'
-          enableIndieHackers: 'false'
-          itemLimit: '20'
+          enableIndieRevenue: 'false'
+          itemLimit: '10'
 
-      - name: Send Email
-        run: python send_email.py "${{ steps.trending.outputs.trendingData }}"
+      - name: Send Email with Archive
+        run: python send_email_with_archive.py "${{ steps.trending.outputs.trendingData }}"
